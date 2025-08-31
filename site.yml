@@ -1,0 +1,5 @@
+---
+- hosts: ubuntu
+  become: true
+  roles:
+    - base

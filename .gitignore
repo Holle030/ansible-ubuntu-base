@@ -1,0 +1,11 @@
+*.retry
+*.vault
+*.secret
+*.bak
+*.log
+__pycache__/
+.env
+.envrc
+id_ed25519
+id_ed25519.pub
+inventory.local.ini

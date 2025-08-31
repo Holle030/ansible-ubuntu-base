@@ -1,0 +1,98 @@
+---
+# roles/base/tasks/main.yml
+
+- name: Apt-Cache aktualisieren (mit kurzer Gültigkeit)
+  apt:
+    update_cache: true
+    cache_valid_time: 3600
+  tags: [update]
+
+- name: System aktualisieren (dist-upgrade)
+  apt:
+    upgrade: dist
+  tags: [update]
+
+- name: Basis-Pakete installieren
+  apt:
+    name: "{{ base_packages | default(['vim','curl','git','htop','tmux','python3-pip','unattended-upgrades','ufw']) }}"
+    state: present
+  tags: [packages]
+
+- name: Zeitzone setzen
+  timezone:
+    name: "{{ timezone | default('Europe/Berlin') }}"
+  tags: [time]
+
+- name: SSH-Hardening Datei anlegen (PasswordAuthentication no)
+  lineinfile:
+    path: /etc/ssh/sshd_config.d/10-hardening.conf
+    create: true
+    line: "PasswordAuthentication no"
+  notify: Restart SSH
+  tags: [ssh,security]
+
+- name: SSH-Hardening (PubkeyAuthentication yes)
+  lineinfile:
+    path: /etc/ssh/sshd_config.d/10-hardening.conf
+    regexp: '^PubkeyAuthentication'
+    line: "PubkeyAuthentication yes"
+    create: true
+  notify: Restart SSH
+  tags: [ssh,security]
+
+- name: SSH-Hardening (PermitRootLogin no)
+  lineinfile:
+    path: /etc/ssh/sshd_config.d/10-hardening.conf
+    regexp: '^PermitRootLogin'
+    line: "PermitRootLogin no"
+    create: true
+  notify: Restart SSH
+  tags: [ssh,security]
+
+- name: Unattended-Upgrades aktivieren (tägliche Updates)
+  copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+  tags: [security,update]
+
+- name: UFW Paket sicherstellen
+  apt:
+    name: ufw
+    state: present
+  tags: [firewall]
+
+- name: UFW Standardpolitik (deny incoming)
+  ufw:
+    state: enabled
+    policy: deny
+    direction: incoming
+  tags: [firewall]
+
+- name: SSH in UFW freigeben
+  ufw:
+    rule: allow
+    name: OpenSSH
+  tags: [firewall]
+
+- name: Autoremove/Apt-Bereinigung
+  apt:
+    autoremove: true
+    autoclean: true
+  tags: [cleanup]
+
+# Optionaler Reboot, wenn Kernel/Essentials aktualisiert wurden (Debian/Ubuntu)
+- name: Reboot erforderlich?
+  stat:
+    path: /var/run/reboot-required
+  register: reboot_flag
+  changed_when: false
+  tags: [reboot]
+
+- name: Reboot durchführen (falls benötigt)
+  reboot:
+    msg: "Reboot by Ansible (base role) to apply kernel/security updates"
+    pre_reboot_delay: 3
+  when: reboot_flag.stat.exists | default(false)
+  tags: [reboot]

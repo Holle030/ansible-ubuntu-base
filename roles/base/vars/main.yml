@@ -1,0 +1,9 @@
+base_packages:
+  - vim
+  - curl
+  - git
+  - htop
+  - tmux
+  - python3-pip
+  - unattended-upgrades
+  - ufw
